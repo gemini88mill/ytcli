@@ -78,12 +78,12 @@ rootCommand.SetAction(async parseResult =>
 
     // Play the audio using FFPlayHandler
     using var ffplayHandler = new FFPlayHandler();
-    await ffplayHandler.PlayAsync(streamUrl);
+    await ffplayHandler.PlayAsync(streamUrl, youtubeStream.Video?.Title, youtubeStream.Video?.Author?.ChannelTitle, youtubeStream.Video?.Duration);
     return 0;
   }
   catch (Exception ex)
   {
-    Console.WriteLine($"Error: {ex.Message}");
+    Logger.HandleException(ex, "application");
     return 1;
   }
 });

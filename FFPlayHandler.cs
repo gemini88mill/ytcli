@@ -7,20 +7,38 @@ public class FFPlayHandler : IDisposable
   private Process? _ffplayProcess;
   private CancellationTokenSource? _cancellationTokenSource;
   private Task? _inputTask;
+  private DateTime _startTime;
+  private TimeSpan _totalDuration;
+  private string _songTitle = "Unknown Title";
+  private string _songAuthor = "Unknown Artist";
 
   /// <summary>
   /// Starts playing audio from the provided stream URL
   /// </summary>
   /// <param name="streamUrl">The audio stream URL to play</param>
+  /// <param name="songTitle">Optional song title for progress display</param>
+  /// <param name="songAuthor">Optional song author for progress display</param>
+  /// <param name="duration">Optional song duration for progress display</param>
   /// <returns>Task representing the async operation</returns>
-  public async Task PlayAsync(string streamUrl)
+  public async Task PlayAsync(string streamUrl, string? songTitle = null, string? songAuthor = null, TimeSpan? duration = null)
   {
     if (string.IsNullOrEmpty(streamUrl))
       throw new ArgumentException("Stream URL cannot be null or empty", nameof(streamUrl));
 
-    Console.WriteLine("🎵 Now playing...");
-    Console.WriteLine("Note: Audio will play through your default audio device");
-    Console.WriteLine("Press 'q' to stop playback");
+    // Set song information
+    _songTitle = songTitle ?? "Unknown Title";
+    _songAuthor = songAuthor ?? "Unknown Artist";
+    _totalDuration = duration ?? TimeSpan.Zero;
+
+    Logger.Info("🎵 Now playing...");
+    Logger.Info("Note: Audio will play through your default audio device");
+    Logger.Info("Press 'q' to stop playback");
+
+    // Display song information if available
+    if (!string.IsNullOrEmpty(songTitle) || !string.IsNullOrEmpty(songAuthor))
+    {
+      Logger.ShowSongInfo(_songTitle, _songAuthor, _totalDuration);
+    }
 
     // Create ffplay process
     _ffplayProcess = new Process
@@ -48,7 +66,7 @@ public class FFPlayHandler : IDisposable
           var key = Console.ReadKey(true);
           if (key.KeyChar == 'q' || key.KeyChar == 'Q')
           {
-            Console.WriteLine("\nStopping playback...");
+            Logger.Info("\nStopping playback...");
             _cancellationTokenSource.Cancel();
 
             // Send 'q' to ffplay to stop it gracefully
@@ -70,25 +88,35 @@ public class FFPlayHandler : IDisposable
 
     try
     {
-      Console.WriteLine("Starting audio playback...");
+      Logger.Info("Starting audio playback...");
       _ffplayProcess.Start();
+      _startTime = DateTime.Now;
+
+      // Create a task that represents the ffplay process
+      var ffplayTask = Task.Run(async () =>
+      {
+        while (!_ffplayProcess.HasExited && !_cancellationTokenSource.Token.IsCancellationRequested)
+        {
+          await Task.Delay(100);
+        }
+      }, _cancellationTokenSource.Token);
+
+      // Start progress display asynchronously
+      var progressTask = Logger.ShowPlaybackProgressAsync(_songTitle, _songAuthor, _totalDuration.TotalSeconds, ffplayTask);
 
       // Wait for either the process to complete or user to press 'q'
-      while (!_ffplayProcess.HasExited && !_cancellationTokenSource.Token.IsCancellationRequested)
-      {
-        await Task.Delay(100);
-      }
+      await Task.WhenAny(ffplayTask, progressTask);
 
       // If user pressed 'q', give ffplay a moment to stop gracefully
       if (_cancellationTokenSource.Token.IsCancellationRequested)
       {
-        Console.WriteLine("Waiting for ffplay to stop gracefully...");
+        Logger.Info("Waiting for ffplay to stop gracefully...");
         await Task.Delay(1000); // Wait 1 second for graceful shutdown
 
         // If still running, force kill
         if (!_ffplayProcess.HasExited)
         {
-          Console.WriteLine("Force stopping ffplay...");
+          Logger.Warning("Force stopping ffplay...");
           try
           {
             _ffplayProcess.Kill(true);
@@ -96,16 +124,16 @@ public class FFPlayHandler : IDisposable
           }
           catch (Exception killEx)
           {
-            Console.WriteLine($"Warning: Could not stop ffplay: {killEx.Message}");
+            Logger.Warning($"Could not stop ffplay: {killEx.Message}");
           }
         }
       }
 
-      Console.WriteLine("Playback finished.");
+      Logger.Success("Playback finished.");
     }
     catch (Exception ex)
     {
-      Console.WriteLine($"Error during playback: {ex.Message}");
+      Logger.HandleException(ex, "playback");
       throw;
     }
     finally
@@ -157,7 +185,7 @@ public class FFPlayHandler : IDisposable
       }
       catch (Exception cleanupEx)
       {
-        Console.WriteLine($"Warning: Could not clean up ffplay process: {cleanupEx.Message}");
+        Logger.Warning($"Could not clean up ffplay process: {cleanupEx.Message}");
       }
     }
 
@@ -177,6 +205,7 @@ public class FFPlayHandler : IDisposable
       }
       catch { }
     }
+
 
     // Dispose cancellation token
     _cancellationTokenSource?.Dispose();
