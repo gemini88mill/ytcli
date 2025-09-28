@@ -12,7 +12,7 @@ var urlOption = new Option<string?>("--url")
 };
 
 // Create search option
-var searchOption = new Option<string?>("--search")
+var searchOption = new Option<string?>("--search", ["-s"])
 {
   Description = "Search term to find a video to stream"
 };
@@ -29,13 +29,13 @@ rootCommand.Add(searchOption);
 rootCommand.Add(verboseOption);
 
 // Set the action
-rootCommand.SetAction(async (ParseResult parseResult) =>
+rootCommand.SetAction(async parseResult =>
 {
   Console.WriteLine("YouTube Audio Streamer");
   Console.WriteLine("====================");
 
   // Check if FFmpeg is installed
-  if (!await CheckFFmpegInstallation())
+  if (!CheckFFmpegInstallation())
   {
     return 1;
   }
@@ -93,7 +93,7 @@ rootCommand.SetAction(async (ParseResult parseResult) =>
 return await rootCommand.Parse(args).InvokeAsync();
 
 // Helper method to check FFmpeg installation
-static async Task<bool> CheckFFmpegInstallation()
+static bool CheckFFmpegInstallation()
 {
   Console.WriteLine("Checking for FFmpeg installation...");
   try
