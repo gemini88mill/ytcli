@@ -1,9 +1,4 @@
-﻿using YoutubeExplode;
-using YoutubeExplode.Videos.Streams;
-using FFMpegCore;
-using FFMpegCore.Enums;
-
-var yt = new YoutubeClient();
+﻿using ytCli;
 
 Console.WriteLine("YouTube Audio Streamer");
 Console.WriteLine("====================");
@@ -102,156 +97,64 @@ catch (Exception ex)
   return;
 }
 
-// Get URL from user input
-Console.Write("Enter YouTube URL: ");
-var url = Console.ReadLine();
+// Get input from user
+Console.WriteLine();
+Console.WriteLine("Choose input method:");
+Console.WriteLine("1. Enter YouTube URL");
+Console.WriteLine("2. Search for video");
+Console.Write("Enter choice (1 or 2): ");
+var choice = Console.ReadLine();
 
-if (string.IsNullOrEmpty(url))
-{
-  Console.WriteLine("No URL provided. Exiting...");
-  return;
-}
+YoutubeStream? youtubeStream = null;
 
 try
 {
-  Console.WriteLine("Fetching video information...");
-
-  // Get video info
-  var video = await yt.Videos.GetAsync(url);
-  Console.WriteLine($"Title: {video.Title}");
-  Console.WriteLine($"Duration: {video.Duration}");
-
-  // Get stream manifest
-  var streamManifest = await yt.Videos.Streams.GetManifestAsync(url);
-
-  // Get the best audio stream
-  var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-
-  if (audioStreamInfo == null)
+  if (choice == "1")
   {
-    Console.WriteLine("No audio stream found for this video.");
+    // Direct URL input
+    Console.Write("Enter YouTube URL: ");
+    var url = Console.ReadLine();
+
+    if (string.IsNullOrEmpty(url))
+    {
+      Console.WriteLine("No URL provided. Exiting...");
+      return;
+    }
+
+    youtubeStream = new YoutubeStream(url);
+  }
+  else if (choice == "2")
+  {
+    // Search input
+    Console.Write("Enter search term: ");
+    var searchTerm = Console.ReadLine();
+
+    if (string.IsNullOrEmpty(searchTerm))
+    {
+      Console.WriteLine("No search term provided. Exiting...");
+      return;
+    }
+
+    youtubeStream = new YoutubeStream(searchTerm, true);
+  }
+  else
+  {
+    Console.WriteLine("Invalid choice. Exiting...");
     return;
   }
 
-  Console.WriteLine($"Audio format: {audioStreamInfo.Container}");
-  Console.WriteLine($"Audio bitrate: {audioStreamInfo.Bitrate}");
-
-  Console.WriteLine("Starting audio stream...");
-  Console.WriteLine("Press 'q' and Enter to stop playback at any time.");
+  // Initialize the YouTube stream
+  await youtubeStream.InitializeAsync();
 
   // Get the stream URL
-  var streamUrl = audioStreamInfo.Url;
+  var streamUrl = youtubeStream.GetStreamUrl();
 
-  Console.WriteLine("🎵 Now playing...");
-  Console.WriteLine("Note: Audio will play through your default audio device");
-  Console.WriteLine("Press 'q' to stop playback");
+  // Display audio stream information
+  youtubeStream.DisplayAudioStreams();
 
-  // Use ffplay to stream and play the audio directly
-  var ffplayProcess = new System.Diagnostics.Process
-  {
-    StartInfo = new System.Diagnostics.ProcessStartInfo
-    {
-      FileName = "ffplay",
-      Arguments = $"-i \"{streamUrl}\" -nodisp -autoexit",
-      UseShellExecute = false,
-      RedirectStandardOutput = true,
-      RedirectStandardError = true,
-      RedirectStandardInput = true, // Enable input redirection
-      CreateNoWindow = true
-    }
-  };
-
-  // Start a background task to monitor for 'q' input
-  var cancellationTokenSource = new CancellationTokenSource();
-  var inputTask = Task.Run(async () =>
-  {
-    while (!cancellationTokenSource.Token.IsCancellationRequested)
-    {
-      if (Console.KeyAvailable)
-      {
-        var key = Console.ReadKey(true);
-        if (key.KeyChar == 'q' || key.KeyChar == 'Q')
-        {
-          Console.WriteLine("\nStopping playback...");
-          cancellationTokenSource.Cancel();
-
-          // Send 'q' to ffplay to stop it gracefully
-          try
-          {
-            if (!ffplayProcess.HasExited && ffplayProcess.StandardInput != null)
-            {
-              ffplayProcess.StandardInput.WriteLine("q");
-              ffplayProcess.StandardInput.Flush();
-            }
-          }
-          catch { }
-          break;
-        }
-      }
-      await Task.Delay(100);
-    }
-  }, cancellationTokenSource.Token);
-
-  try
-  {
-    Console.WriteLine("Starting audio playback...");
-    ffplayProcess.Start();
-
-    // Wait for either the process to complete or user to press 'q'
-    while (!ffplayProcess.HasExited && !cancellationTokenSource.Token.IsCancellationRequested)
-    {
-      await Task.Delay(100);
-    }
-
-    // If user pressed 'q', give ffplay a moment to stop gracefully
-    if (cancellationTokenSource.Token.IsCancellationRequested)
-    {
-      Console.WriteLine("Waiting for ffplay to stop gracefully...");
-      await Task.Delay(1000); // Wait 1 second for graceful shutdown
-
-      // If still running, force kill
-      if (!ffplayProcess.HasExited)
-      {
-        Console.WriteLine("Force stopping ffplay...");
-        try
-        {
-          ffplayProcess.Kill(true);
-          ffplayProcess.WaitForExit(2000);
-        }
-        catch (Exception killEx)
-        {
-          Console.WriteLine($"Warning: Could not stop ffplay: {killEx.Message}");
-        }
-      }
-    }
-
-    Console.WriteLine("Playback finished.");
-  }
-  catch (Exception ex)
-  {
-    Console.WriteLine($"Error during playback: {ex.Message}");
-  }
-  finally
-  {
-    cancellationTokenSource.Cancel();
-
-    // Final cleanup
-    if (!ffplayProcess.HasExited)
-    {
-      try
-      {
-        ffplayProcess.Kill(true);
-        ffplayProcess.WaitForExit(1000);
-      }
-      catch { }
-    }
-
-    try
-    {
-      ffplayProcess.Dispose();
-    }
-    catch { }
-  }
+  // Play the audio using FFPlayHandler
+  using var ffplayHandler = new FFPlayHandler();
+  await ffplayHandler.PlayAsync(streamUrl);
 }
 catch (Exception ex)
 {
