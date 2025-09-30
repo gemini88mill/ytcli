@@ -7,6 +7,25 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net9.0</TargetFramework>
+        <LangVersion>13.0</LangVersion>
+        <Nullable>enable</Nullable>
+
+        <!-- Release Configuration -->
+        <Version>1.0.0</Version>
+        <Authors>Your Name</Authors>
+        <Description>YouTube CLI Tool</Description>
+        <Copyright>Copyright © 2025</Copyright>
+
+        <!-- Optimize for release -->
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>true</SelfContained>
+        <PublishTrimmed>true</PublishTrimmed>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="FFMpegCore" Version="5.2.0" />
     <PackageReference Include="Spectre.Console" Version="0.51.1" />
