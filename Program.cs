@@ -10,19 +10,19 @@ var urlOption = new Option<string?>("--url")
   Description = "YouTube video URL to stream"
 };
 
-// Create search option
+// Create a search option
 var searchOption = new Option<string?>("--search", ["-s"])
 {
   Description = "Search term to find a video to stream"
 };
 
-// Create verbose option
+// Create a verbose option
 var verboseOption = new Option<bool>("--verbose")
 {
   Description = "Show detailed information"
 };
 
-// Add options to root command
+// Add options to the root command
 rootCommand.Add(urlOption);
 rootCommand.Add(searchOption);
 rootCommand.Add(verboseOption);
@@ -36,8 +36,6 @@ rootCommand.SetAction(async parseResult =>
     return 1;
   }
 
-  YoutubeStream? youtubeStream = null;
-
   try
   {
     // Get parameter values from parse result
@@ -45,14 +43,15 @@ rootCommand.SetAction(async parseResult =>
     var search = parseResult.GetValue(searchOption);
     var verbose = parseResult.GetValue(verboseOption);
 
-    // Determine input method
+    // Determine the input method
+    Streamer? youtubeStream;
     if (!string.IsNullOrEmpty(url))
     {
-      youtubeStream = new YoutubeStream(url);
+      youtubeStream = new Streamer();
     }
     else if (!string.IsNullOrEmpty(search))
     {
-      youtubeStream = new YoutubeStream(search, true);
+      youtubeStream = new Streamer(search, true);
     }
     else
     {
@@ -67,7 +66,7 @@ rootCommand.SetAction(async parseResult =>
     using var ffplayHandler = new FFPlayHandler();
     await ffplayHandler.PlayAsync(streamUrl,
       youtubeStream.Video?.Title,
-      youtubeStream.Video?.Author?.ChannelTitle,
+      youtubeStream.Video?.Author.ChannelTitle,
       youtubeStream.Video?.Duration);
     return 0;
   }

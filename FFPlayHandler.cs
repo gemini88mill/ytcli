@@ -29,9 +29,7 @@ public class FFPlayHandler : IDisposable
     _songTitle = songTitle ?? "Unknown Title";
     _songAuthor = songAuthor ?? "Unknown Artist";
     _totalDuration = duration ?? TimeSpan.Zero;
-
-    Logger.Info("🎵 Now playing...");
-    Logger.Info("Note: Audio will play through your default audio device");
+    
     Logger.Info("Press 'q' to stop playback");
 
     // Display song information if available
@@ -78,7 +76,11 @@ public class FFPlayHandler : IDisposable
                 _ffplayProcess.StandardInput.Flush();
               }
             }
-            catch { }
+            catch
+            {
+              // ignored
+            }
+
             break;
           }
         }
@@ -194,16 +196,22 @@ public class FFPlayHandler : IDisposable
     {
       _ffplayProcess?.Dispose();
     }
-    catch { }
+    catch
+    {
+      // ignored
+    }
 
-    // Wait for input task to complete
+    // Wait for the input task to complete
     if (_inputTask != null)
     {
       try
       {
         await _inputTask;
       }
-      catch { }
+      catch
+      {
+        // ignored
+      }
     }
 
 
