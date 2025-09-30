@@ -201,4 +201,17 @@ public class YoutubeStream
       Console.WriteLine("---");
     }
   }
+  
+  public async Task<string> InitAndGetStreamUrl(bool verbose = false)
+  {
+    await InitializeAsync();
+    var streamUrl = GetStreamUrl();
+    
+    if (verbose)
+    {
+      DisplayAudioStreams();
+    }
+
+    return streamUrl;
+  }
 }
