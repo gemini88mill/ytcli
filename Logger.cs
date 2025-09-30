@@ -382,4 +382,51 @@ public static class Logger
     AnsiConsole.MarkupLine($"[bold]{progressBar}[/] [bold yellow]{percentage}%[/]");
     AnsiConsole.MarkupLine($"[bold yellow]{currentTimeStr} / {totalTimeStr}[/]");
   }
+
+  /// <summary>
+  /// Shows a status spinner while an operation is running, then displays the result
+  /// </summary>
+  /// <param name="statusMessage">The message to show in the status spinner</param>
+  /// <param name="operation">The async operation to perform</param>
+  /// <param name="successMessage">Optional success message to show after completion</param>
+  /// <param name="showSuccess">Whether to show a success message after completion (default: true)</param>
+  /// <returns>Task representing the async operation</returns>
+  public static async Task ShowStatusAsync(string statusMessage, Func<Task> operation, string? successMessage = null, bool showSuccess = true)
+  {
+    await AnsiConsole.Status()
+      .StartAsync(statusMessage, async ctx =>
+      {
+        await operation();
+      });
+
+    if (showSuccess && !string.IsNullOrEmpty(successMessage))
+    {
+      Success(successMessage);
+    }
+  }
+
+  /// <summary>
+  /// Shows a status spinner while an operation is running, then displays the result
+  /// </summary>
+  /// <typeparam name="T">The type of the result</typeparam>
+  /// <param name="statusMessage">The message to show in the status spinner</param>
+  /// <param name="operation">The async operation to perform</param>
+  /// <param name="successMessage">Optional success message to show after completion</param>
+  /// <param name="showSuccess">Whether to show a success message after completion (default: true)</param>
+  /// <returns>The result of the operation</returns>
+  public static async Task<T> ShowStatusAsync<T>(string statusMessage, Func<Task<T>> operation, string? successMessage = null, bool showSuccess = true)
+  {
+    var result = await AnsiConsole.Status()
+      .StartAsync(statusMessage, async ctx =>
+      {
+        return await operation();
+      });
+
+    if (showSuccess && !string.IsNullOrEmpty(successMessage))
+    {
+      Success(successMessage);
+    }
+
+    return result;
+  }
 }

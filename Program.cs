@@ -30,8 +30,7 @@ rootCommand.Add(verboseOption);
 // Set the action
 rootCommand.SetAction(async parseResult =>
 {
-  Console.WriteLine("YouTube Audio Streamer");
-  Console.WriteLine("====================");
+  Logger.Header("YouTube Audio Streamer");
 
   // Check if FFmpeg is installed
   if (!CheckFFmpegInstallation())
