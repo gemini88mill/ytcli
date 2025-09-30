@@ -1,5 +1,4 @@
-﻿name: Release
-name: Build and Release
+﻿name: Build and Release
 
 on:
   push:
@@ -15,22 +14,21 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
         include:
           - os: windows-latest
-            runtime: win-x64
+            rid: win-x64
             artifact_name: ytcli-win-x64
-            exe_extension: .exe
+            ext: .exe
           - os: ubuntu-latest
-            runtime: linux-x64
+            rid: linux-x64
             artifact_name: ytcli-linux-x64
-            exe_extension: ''
+            ext: ''
           - os: macos-latest
-            runtime: osx-x64
+            rid: osx-x64
             artifact_name: ytcli-osx-x64
-            exe_extension: ''
-
+            ext: ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,14 +42,14 @@ jobs:
         run: dotnet restore
 
       - name: Publish
-        run: |
-          dotnet publish ytcli.csproj \
-            --configuration Release \
-            --runtime ${{ matrix.runtime }} \
-            --self-contained true \
-            --output ./out/${{ matrix.artifact_name }} \
-            /p:PublishSingleFile=true \
-            /p:IncludeNativeLibrariesForSelfExtracted=true
+        run: >
+          dotnet publish ytcli.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          --output ./out/${{ matrix.artifact_name }}
+          /p:PublishSingleFile=true
+          /p:IncludeNativeLibrariesForSelfExtracted=true
 
       - name: Archive (Windows)
         if: matrix.os == 'windows-latest'
@@ -67,9 +65,8 @@ jobs:
         run: |
           set -euo pipefail
           cd "./out/${{ matrix.artifact_name }}"
-          # Ensure executable bit on Unix targets (no-op on Windows)
-          if [ -f "ytcli${{ matrix.exe_extension }}" ]; then
-            chmod +x "ytcli${{ matrix.exe_extension }}"
+          if [ -f "ytcli${{ matrix.ext }}" ]; then
+            chmod +x "ytcli${{ matrix.ext }}"
           fi
           zip -r "../../${{ matrix.artifact_name }}.zip" .
           cd - >/dev/null
@@ -92,99 +89,11 @@ jobs:
           path: artifacts
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*.zip
           draft: false
           prerelease: false
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-on:
-  workflow_dispatch:
-  push:
-    tags:
-      - "v*"
-
-permissions:
-  contents: write
-
-jobs:
-  build:
-    name: Build ${{ matrix.rid }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            rid: win-x64
-            ext: .exe
-          - os: ubuntu-latest
-            rid: linux-x64
-            ext: ""
-          - os: macos-latest
-            rid: osx-x64
-            ext: ""
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 9.0.x
-
-      - name: Restore
-        run: dotnet restore
-
-      - name: Publish (self-contained, single file)
-        run: >-
-          dotnet publish ytcli.csproj -c Release -r ${{ matrix.rid }} --self-contained true
-          -p:PublishSingleFile=true -p:PublishTrimmed=false
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -o out/${{ matrix.rid }}
-
-      - name: List output
-        run: |
-          dir out
-        shell: pwsh
-
-      - name: Archive
-        shell: bash
-        run: |
-          cd out/${{ matrix.rid }}
-          zip -r ../../ytcli-${{ matrix.rid }}.zip .
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ytcli-${{ matrix.rid }}
-          path: |
-            out/${{ matrix.rid }}/ytcli${{ matrix.ext }}
-            ytcli-${{ matrix.rid }}.zip
-
-  release:
-    name: Create GitHub Release
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Show downloaded files
-        run: |
-          ls -R artifacts
-
-      - name: Create GitHub Release (draft)
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: |
-            artifacts/ytcli*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
